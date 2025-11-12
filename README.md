@@ -1,6 +1,6 @@
 # VR Environment Ratty Snakes
 
-_Acá va un párrafo que describa lo que es el proyecto_
+Proyecto de una creación de un environment VR en Unity para la asignatura Entornos de Realidad Virtual.
 
 
 ### Pre-requisitos 📋
