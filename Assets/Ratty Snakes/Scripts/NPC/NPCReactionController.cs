@@ -1,66 +1,74 @@
 using UnityEngine;
 
 /// <summary>
-/// Controla las reacciones de un NPC (frase positiva / negativa).
+/// Controla las reacciones de un NPC (frase positiva / negativa) y el diálogo flotante.
 /// Se inicializa desde NPCManager con la referencia al manager y los datos del NPC.
 /// </summary>
 public class NPCReactionController : MonoBehaviour
 {
     private NPCManager npcManager;
     private NPCManager.NPCData npcData;
+    private NPCFloatingDialogue activeDialogue;
 
     /// <summary>
-    /// Inicializa el controller con referencia al manager y los datos del NPC.
-    /// Llamar justo después de instanciar el NPC.
+    /// Inicializa el controller con manager, datos y diálogo flotante.
     /// </summary>
-    public void Initialize(NPCManager manager, NPCManager.NPCData data)
+    public void Initialize(NPCManager manager, NPCManager.NPCData data, NPCFloatingDialogue dialogue)
     {
         npcManager = manager;
         npcData = data;
+        activeDialogue = dialogue;
     }
 
     /// <summary>
-    /// Reacción positiva: dice la frase positiva (aquí con Debug.Log; más tarde puedes reproducir audio).
+    /// Muestra un texto en el diálogo flotante existente.
+    /// </summary>
+    private void ShowFloatingDialogue(string text)
+    {
+        if (activeDialogue != null)
+        {
+            activeDialogue.Show(text);
+        }
+        else
+        {
+            Debug.LogError("NPCReactionController: activeDialogue no asignado.");
+        }
+    }
+
+    /// <summary>
+    /// Reacción positiva: muestra la frase positiva.
     /// </summary>
     public void ReactPositive()
     {
         if (npcData != null)
-        {
-            Debug.Log("NPCReact Positive: " + npcData.positiveReaction);
-            // Aquí puedes reproducir un audio clip, TTS o animación.
-        }
+            ShowFloatingDialogue(npcData.positiveReaction);
         else
-        {
             Debug.LogWarning("NPCReactionController.ReactPositive: npcData es null.");
-        }
     }
 
     /// <summary>
-    /// Reacción negativa: dice la frase negativa y elimina el NPC y su UI.
+    /// Reacción negativa: muestra la frase negativa y elimina NPC + UI.
     /// </summary>
     public void ReactNegative()
     {
         if (npcData != null)
-        {
-            Debug.Log("NPCReact Negative: " + npcData.negativeReaction);
-        }
+            ShowFloatingDialogue(npcData.negativeReaction);
         else
-        {
             Debug.LogWarning("NPCReactionController.ReactNegative: npcData es null.");
-        }
 
-        // Ocultar UI si existe
+        // Ocultar UI principal
         if (npcManager != null && npcManager.uiController != null)
-        {
             npcManager.uiController.HideUI();
-        }
 
-        // Limpiar referencia en el manager y destruir este NPC
+        // Limpiar referencia en manager
         if (npcManager != null)
-        {
             npcManager.ClearCurrentNPC();
-        }
 
-        Destroy(gameObject);
+        // Destruir diálogo flotante con un pequeño delay
+        if (activeDialogue != null)
+            Destroy(activeDialogue.gameObject, 0.1f);
+
+        // Destruir NPC
+        Destroy(gameObject, 0.1f);
     }
 }
