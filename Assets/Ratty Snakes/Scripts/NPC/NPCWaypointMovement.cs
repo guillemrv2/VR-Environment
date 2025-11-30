@@ -8,7 +8,7 @@ public class NPCWaypointMovement : MonoBehaviour
 
     [Header("Movement")]
     public float speed = 1f;
-    public float rotationSpeed = 5f; // velocidad de rotación suave
+    public float rotationSpeed = 5f;
 
     [Header("State")]
     public bool isWaitingDecision = false;
@@ -18,6 +18,9 @@ public class NPCWaypointMovement : MonoBehaviour
 
     // Callback al llegar a WP_1 (para mostrar UI)
     public Action onReachedWaypoint1;
+
+    // Callback al llegar al último waypoint (WP_5)
+    public Action onReachedLastWaypoint;
 
     void Update()
     {
@@ -42,9 +45,16 @@ public class NPCWaypointMovement : MonoBehaviour
         {
             if (currentIndex == 1)
             {
+                // Llega al WP_1 y espera decisión
                 isMoving = false;
                 isWaitingDecision = true;
                 onReachedWaypoint1?.Invoke();
+            }
+            else if (currentIndex == waypoints.Length - 1)
+            {
+                // Último waypoint: destruir NPC y notificar al manager
+                onReachedLastWaypoint?.Invoke();
+                Destroy(gameObject);
             }
             else
             {
