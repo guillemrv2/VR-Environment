@@ -7,6 +7,7 @@ public class NPCManager : MonoBehaviour
     public Transform spawnPoint;
     public Transform targetPoint;
 
+    [Header("Scene References")]
     public GameObject currentNPC;
 
     [Header("UI Settings")]
@@ -20,6 +21,10 @@ public class NPCManager : MonoBehaviour
         public string bio;
         public string goodActs;
         public string badActs;
+
+        // Frases personalizables
+        [TextArea] public string positiveReaction;   // ejemplo: "Gracias, que Dios te lo pague."
+        [TextArea] public string negativeReaction;   // ejemplo: "¡Oiga! Eso no es justo..."
     }
 
     public NPCData[] npcDemoData;
@@ -47,20 +52,15 @@ public class NPCManager : MonoBehaviour
             return;
         }
 
-        if (uiController == null)
-        {
-            Debug.LogWarning("NPCManager: uiController no está asignado en el Inspector.");
-        }
-
-        // Guardamos el índice *para esta instancia* para evitar problemas por closure
+        // Guardamos el índice para esta instancia (evita problemas con closures)
         int indexForThis = currentIndex;
 
-        // Instancia del NPC
+        // Instancia del NPC en el spawn point
         currentNPC = Instantiate(npcPrefab, spawnPoint.position, Quaternion.identity);
         Debug.Log("NPCManager: NPC instanciado -> " + currentNPC.name + " (indexForThis = " + indexForThis + ")");
 
+        // Obtener movement
         NPCMovement movement = currentNPC.GetComponent<NPCMovement>();
-
         if (movement == null)
         {
             Debug.LogError("NPCManager: NPCMovement no encontrado en el prefab.");
@@ -68,15 +68,25 @@ public class NPCManager : MonoBehaviour
             return;
         }
 
+        // Inicializar reaction controller: SI el prefab tiene el componente, obténlo; si no, añádelo.
+        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+        if (reaction == null)
+        {
+            reaction = currentNPC.AddComponent<NPCReactionController>();
+        }
+
+        // Inicializar con manager y datos
+        reaction.Initialize(this, npcDemoData[indexForThis]);
+
+        // Asignar target
         movement.SetTarget(targetPoint);
 
-        // Suscribimos al evento usando la copia indexForThis
+        // Evento de llegada (usa copia indexForThis)
         System.Action onReachedHandler = null;
         onReachedHandler = () =>
         {
             Debug.Log("NPCManager: Evento recibido: NPC llegó al target. indexForThis = " + indexForThis);
 
-            // Tomamos los datos del NPC correspondiente
             if (indexForThis < 0 || indexForThis >= npcDemoData.Length)
             {
                 Debug.LogError("NPCManager: indexForThis fuera de rango: " + indexForThis);
@@ -88,7 +98,7 @@ public class NPCManager : MonoBehaviour
                 if (uiController != null)
                 {
                     Debug.Log("NPCManager: Mostrando UI del NPC index " + indexForThis);
-                    // Ahora la UI se genera en el punto fijo definido en NPCUIController
+                    // ShowUI ahora no pide posición (usa el uiSpawnPoint del UI controller)
                     uiController.ShowUI(
                         data.npcName,
                         data.causeOfDeath,
@@ -103,7 +113,7 @@ public class NPCManager : MonoBehaviour
                 }
             }
 
-            // Limpiamos la suscripción para evitar dobles llamadas o referencias colgantes
+            // Limpiamos la suscripción
             movement.OnReachedTarget = null;
         };
 
@@ -113,9 +123,73 @@ public class NPCManager : MonoBehaviour
         currentIndex++;
     }
 
+    /// <summary>
+    /// Limpia la referencia al NPC actual (llamar cuando el NPC desaparece).
+    /// </summary>
     public void ClearCurrentNPC()
     {
-        Debug.Log("NPCManager: NPC eliminado del sistema.");
+        Debug.Log("NPCManager: ClearCurrentNPC() llamado.");
         currentNPC = null;
+    }
+
+    // -------------------------
+    // Métodos públicos para conectar a los StaticHandGesture (Gesture Performed)
+    // -------------------------
+    public void OnThumbsUp()
+    {
+        if (currentNPC == null)
+        {
+            Debug.Log("OnThumbsUp: no hay NPC activo.");
+            return;
+        }
+
+        Debug.Log("OnThumbsUp: gesto detectado.");
+
+        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+        if (reaction != null)
+        {
+            reaction.ReactPositive();
+        }
+        else
+        {
+            Debug.LogWarning("OnThumbsUp: NPCReactionController no encontrado en currentNPC.");
+        }
+    }
+
+    public void OnThumbsDown()
+    {
+        HandleNegativeGesture("ThumbsDown");
+    }
+
+    public void OnMiddleFinger()
+    {
+        HandleNegativeGesture("MiddleFinger");
+    }
+
+    public void OnNegationGesture()
+    {
+        HandleNegativeGesture("NegationIndex");
+    }
+
+    // Helper para gestos negativos
+    private void HandleNegativeGesture(string gestureName)
+    {
+        if (currentNPC == null)
+        {
+            Debug.Log("HandleNegativeGesture: no hay NPC activo.");
+            return;
+        }
+
+        Debug.Log("HandleNegativeGesture: gesto negativo detectado -> " + gestureName);
+
+        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+        if (reaction != null)
+        {
+            reaction.ReactNegative();
+        }
+        else
+        {
+            Debug.LogWarning("HandleNegativeGesture: NPCReactionController no encontrado en currentNPC.");
+        }
     }
 }

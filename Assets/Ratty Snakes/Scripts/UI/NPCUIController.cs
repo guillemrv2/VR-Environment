@@ -22,6 +22,7 @@ public class NPCUIController : MonoBehaviour
         // Instancia en un punto fijo de la escena
         instance = Instantiate(canvasPrefab, uiSpawnPoint.position, uiSpawnPoint.rotation);
 
+
         // Referencias a los campos de texto usando tu jerarquía actual
         nameText = instance.transform.Find("NPC_NamePanel/NPC_NameText").GetComponent<TextMeshProUGUI>();
         causeOfDeathText = instance.transform.Find("NPC_CauseOfDeathPanel/NPC_CauseOfDeathText").GetComponent<TextMeshProUGUI>();
