@@ -67,34 +67,40 @@ public class NPCManager : MonoBehaviour
         }
     }
 
-    // Inicializamos ReactionController
-    NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
-    if (!reaction) reaction = currentNPC.AddComponent<NPCReactionController>();
-    reaction.Initialize(this, npcDemoData[indexForThis], dialogue);
+        // Inicializamos waypoint movement
+        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (!movement) movement = currentNPC.AddComponent<NPCWaypointMovement>();
+        movement.waypoints = waypoints;
 
-    // Inicializamos waypoint movement
-    NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
-    if (!movement) movement = currentNPC.AddComponent<NPCWaypointMovement>();
-    movement.waypoints = waypoints;
-
-    // Callback cuando llega a WP_1 (UI)
-    movement.onReachedWaypoint1 = () =>
-    {
-        NPCData data = npcDemoData[indexForThis];
-        if (uiController != null)
+        // Callback cuando llega a WP_1 (UI)
+        movement.onReachedWaypoint1 = () =>
         {
-            uiController.ShowUI(
-                data.npcName,
-                data.causeOfDeath,
-                data.bio,
-                data.goodActs,
-                data.badActs
-            );
-        }
-        // Aquí se espera la decisión del jugador
-    };
+            NPCData data = npcDemoData[indexForThis];
+            if (uiController != null)
+            {
+                uiController.ShowUI(
+                    data.npcName,
+                    data.causeOfDeath,
+                    data.bio,
+                    data.goodActs,
+                    data.badActs
+                );
+            }
+            // Ahora el NPC espera la decisión
+        };
 
-    movement.StartWalking(); // WP_0 → WP_1 automático
+        // Callback cuando llega al último waypoint (WP_5)
+        movement.onReachedLastWaypoint = () =>
+        {
+            // Limpiar referencia del NPC
+            ClearCurrentNPC();
+
+            // Ocultar UI
+            if (uiController != null)
+                uiController.HideUI();
+        };
+
+        movement.StartWalking(); // WP_0 → WP_1 automático
 
     currentIndex++;
 }
