@@ -1,17 +1,18 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class NPCManager : MonoBehaviour
 {
     [Header("NPC Settings")]
     public GameObject npcPrefab;
-    public Transform spawnPoint;
-    public Transform targetPoint;
 
     [Header("Scene References")]
     public GameObject currentNPC;
 
     [Header("UI Settings")]
     public NPCUIController uiController;
+
+    [Header("Waypoints")]
+    public Transform[] waypoints; // WP_0 a WP_5
 
     [Header("Floating Dialogue")]
     public GameObject floatingDialoguePrefab;
@@ -33,120 +34,114 @@ public class NPCManager : MonoBehaviour
     private int currentIndex = 0;
 
     public void SpawnNextNPC()
+{
+    if (currentNPC != null) return;
+    if (npcDemoData == null || npcDemoData.Length == 0) return;
+    if (currentIndex >= npcDemoData.Length)
     {
-        if (currentNPC != null)
-        {
-            Debug.LogWarning("NPCManager: Ya hay un NPC activo.");
-            return;
-        }
-
-        if (npcDemoData == null || npcDemoData.Length == 0)
-        {
-            Debug.LogError("NPCManager: npcDemoData est� vac�o o es null.");
-            return;
-        }
-
-        if (currentIndex >= npcDemoData.Length)
-        {
-            Debug.LogWarning("NPCManager: No quedan NPCs en npcDemoData.");
-            return;
-        }
-
-        int indexForThis = currentIndex;
-
-        // Instanciar NPC
-        currentNPC = Instantiate(npcPrefab, spawnPoint.position, Quaternion.identity);
-
-        // Obtener NPCMovement
-        NPCMovement movement = currentNPC.GetComponent<NPCMovement>();
-        if (movement == null)
-        {
-            Debug.LogError("NPCManager: NPCMovement no encontrado en el prefab.");
-            Destroy(currentNPC);
-            currentNPC = null;
-            return;
-        }
-
-        // Instanciar di�logo flotante
-        NPCFloatingDialogue dialogue = null;
-        if (floatingDialoguePrefab != null)
-        {
-            GameObject floatingUI = Instantiate(floatingDialoguePrefab);
-            dialogue = floatingUI.GetComponent<NPCFloatingDialogue>();
-            if (dialogue != null)
-            {
-                Transform headAnchor = currentNPC.transform.Find("HeadAnchor");
-                if (headAnchor != null)
-                    dialogue.targetToFollow = headAnchor;
-                else
-                    Debug.LogError("NPCManager: HeadAnchor no encontrado en el prefab NPC.");
-
-                // Asignar TextMeshProUGUI
-                var textComponent = floatingUI.transform.Find("Canvas/DialogueText")?
-                    .GetComponent<TMPro.TextMeshProUGUI>();
-                if (textComponent != null)
-                    dialogue.dialogueText = textComponent;
-                else
-                    Debug.LogWarning("NPCManager: DialogueText no encontrado en Canvas.");
-            }
-            else
-            {
-                Debug.LogError("NPCManager: NPCFloatingDialogue no encontrado en el prefab floatingDialoguePrefab.");
-            }
-        }
-
-        // Inicializar ReactionController
-        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
-        if (reaction == null)
-            reaction = currentNPC.AddComponent<NPCReactionController>();
-
-        reaction.Initialize(this, npcDemoData[indexForThis], dialogue);
-
-        // Asignar target del movimiento
-        movement.SetTarget(targetPoint);
-
-        // Evento al llegar al target
-        movement.OnReachedTarget = () =>
-        {
-            NPCData data = npcDemoData[indexForThis];
-            if (uiController != null)
-            {
-                uiController.ShowUI(
-                    data.npcName,
-                    data.causeOfDeath,
-                    data.bio,
-                    data.goodActs,
-                    data.badActs
-                );
-            }
-            movement.OnReachedTarget = null;
-        };
-
-        currentIndex++;
+        Debug.LogWarning("NPCManager: No quedan NPCs en npcDemoData.");
+        return;
     }
+
+    int indexForThis = currentIndex;
+
+    // Instanciamos el NPC en WP_0
+    currentNPC = Instantiate(npcPrefab, waypoints[0].position, Quaternion.identity);
+
+    // Inicializamos diálogo flotante
+    NPCFloatingDialogue dialogue = null;
+    if (floatingDialoguePrefab != null)
+    {
+        GameObject floatingUI = Instantiate(floatingDialoguePrefab);
+        dialogue = floatingUI.GetComponent<NPCFloatingDialogue>();
+        if (dialogue != null)
+        {
+            Transform headAnchor = currentNPC.transform.Find("HeadAnchor");
+            if (headAnchor != null)
+            {
+                dialogue.targetToFollow = headAnchor;
+                var text = floatingUI.transform.Find("Canvas/DialogueText");
+                if (text != null)
+                    dialogue.dialogueText = text.GetComponent<TMPro.TextMeshProUGUI>();
+            }
+        }
+    }
+
+    // Inicializamos ReactionController
+    NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+    if (!reaction) reaction = currentNPC.AddComponent<NPCReactionController>();
+    reaction.Initialize(this, npcDemoData[indexForThis], dialogue);
+
+    // Inicializamos waypoint movement
+    NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
+    if (!movement) movement = currentNPC.AddComponent<NPCWaypointMovement>();
+    movement.waypoints = waypoints;
+
+    // Callback cuando llega a WP_1 (UI)
+    movement.onReachedWaypoint1 = () =>
+    {
+        NPCData data = npcDemoData[indexForThis];
+        if (uiController != null)
+        {
+            uiController.ShowUI(
+                data.npcName,
+                data.causeOfDeath,
+                data.bio,
+                data.goodActs,
+                data.badActs
+            );
+        }
+        // Aquí se espera la decisión del jugador
+    };
+
+    movement.StartWalking(); // WP_0 → WP_1 automático
+
+    currentIndex++;
+}
+
 
     public void ClearCurrentNPC()
     {
         currentNPC = null;
     }
 
-    // M�todos para gestos
-    public void OnThumbsUp() => TriggerPositive();
-    public void OnThumbsDown() => TriggerNegative();
-    public void OnMiddleFinger() => TriggerNegative();
-    public void OnNegationGesture() => TriggerNegative();
+    // Gestos
+    public void OnThumbsUp() { TriggerPositive(); }
+    public void OnThumbsDown() { TriggerNegative("ThumbsDown"); }
+    public void OnMiddleFinger() { TriggerNegative("MiddleFinger"); }
+    public void OnNegationGesture() { TriggerNegative("NegationIndex"); }
 
     private void TriggerPositive()
     {
         if (currentNPC == null) return;
-        var reaction = currentNPC.GetComponent<NPCReactionController>();
+
+        // Hacer reacción positiva
+        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
         reaction?.ReactPositive();
+
+        // Continuar camino si estaba esperando decisión
+        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (movement != null && movement.isWaitingDecision)
+        {
+            movement.ContinueWalking(); // ahora sigue hacia WP_2 -> WP_5
+        }
     }
 
-    private void TriggerNegative()
+    private void TriggerNegative(string gestureName)
     {
         if (currentNPC == null) return;
-        var reaction = currentNPC.GetComponent<NPCReactionController>();
+
+        // Reacción negativa
+        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
         reaction?.ReactNegative();
+
+        // Si estaba esperando decisión, destruir NPC
+        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (movement != null && movement.isWaitingDecision)
+        {
+            movement.isWaitingDecision = false;
+            // Se destruye el NPC desde ReactNegative
+        }
     }
+
 }

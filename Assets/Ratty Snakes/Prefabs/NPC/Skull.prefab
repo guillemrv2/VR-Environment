@@ -172,10 +172,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3fdf43345f9aa3048b3d7164aba3089d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 1.5
-  stopDistance: 0.05
-  target: {fileID: 0}
-  hasTarget: 0
+  waypoints: []
+  speed: 1.5
 --- !u!135 &642678142371071944
 SphereCollider:
   m_ObjectHideFlags: 0
