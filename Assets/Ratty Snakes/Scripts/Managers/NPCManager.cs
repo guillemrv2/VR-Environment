@@ -2,20 +2,18 @@
 
 public class NPCManager : MonoBehaviour
 {
-    [Header("NPC Settings")]
+    [Header("Prefabs & refs")]
     public GameObject npcPrefab;
-
-    [Header("Scene References")]
-    public GameObject currentNPC;
-
-    [Header("UI Settings")]
-    public NPCUIController uiController;
-
-    [Header("Waypoints")]
-    public Transform[] waypoints; // WP_0 a WP_5
-
-    [Header("Floating Dialogue")]
+    public Transform[] waypoints; // WP_0..WP_5
+    public NPCUIController uiController;     // NPC_UI_Canvas (World Space)
     public GameObject floatingDialoguePrefab;
+
+    [Header("Demo data")]
+    public NPCData[] npcDemoData;
+
+    private GameObject currentNPC;
+    private int currentIndex = 0;
+    private NPCFloatingDialogue currentFloatingDialogue; // referencia para destruirla
 
     [System.Serializable]
     public class NPCData
@@ -25,129 +23,150 @@ public class NPCManager : MonoBehaviour
         public string bio;
         public string goodActs;
         public string badActs;
-
         [TextArea] public string positiveReaction;
         [TextArea] public string negativeReaction;
     }
 
-    public NPCData[] npcDemoData;
-    private int currentIndex = 0;
-
     public void SpawnNextNPC()
-{
-    if (currentNPC != null) return;
-    if (npcDemoData == null || npcDemoData.Length == 0) return;
-    if (currentIndex >= npcDemoData.Length)
     {
-        Debug.LogWarning("NPCManager: No quedan NPCs en npcDemoData.");
-        return;
-    }
+        if (currentNPC != null) return;
+        if (npcDemoData == null || npcDemoData.Length == 0) return;
+        if (currentIndex >= npcDemoData.Length) return;
 
-    int indexForThis = currentIndex;
+        int idx = currentIndex;
 
-    // Instanciamos el NPC en WP_0
-    currentNPC = Instantiate(npcPrefab, waypoints[0].position, Quaternion.identity);
+        // 1) Instanciar NPC en WP_0
+        currentNPC = Instantiate(npcPrefab, waypoints[0].position, Quaternion.identity);
 
-    // Inicializamos diálogo flotante
-    NPCFloatingDialogue dialogue = null;
-    if (floatingDialoguePrefab != null)
-    {
-        GameObject floatingUI = Instantiate(floatingDialoguePrefab);
-        dialogue = floatingUI.GetComponent<NPCFloatingDialogue>();
-        if (dialogue != null)
+        // 2) Floating dialogue: instanciar y asignar target
+        currentFloatingDialogue = null;
+        if (floatingDialoguePrefab != null)
         {
-            Transform headAnchor = currentNPC.transform.Find("HeadAnchor");
-            if (headAnchor != null)
+            GameObject floatingUI = Instantiate(floatingDialoguePrefab);
+            var dialogueComp = floatingUI.GetComponent<NPCFloatingDialogue>();
+            if (dialogueComp != null)
             {
-                dialogue.targetToFollow = headAnchor;
-                var text = floatingUI.transform.Find("Canvas/DialogueText");
-                if (text != null)
-                    dialogue.dialogueText = text.GetComponent<TMPro.TextMeshProUGUI>();
+                Transform head = currentNPC.transform.Find("HeadAnchor");
+                if (head != null)
+                {
+                    dialogueComp.targetToFollow = head;
+                    // intenta asignar TextMeshPro automáticamente
+                    dialogueComp.dialogueText = floatingUI.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                    currentFloatingDialogue = dialogueComp;
+                }
+                else
+                {
+                    Debug.LogWarning("NPCManager: HeadAnchor no encontrado en prefab NPC.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("NPCManager: floatingDialoguePrefab no contiene NPCFloatingDialogue.");
             }
         }
-    }
 
-        // Inicializamos waypoint movement
-        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
-        if (!movement) movement = currentNPC.AddComponent<NPCWaypointMovement>();
+        // 3) ReactionController
+        var reaction = currentNPC.GetComponent<NPCReactionController>();
+        if (reaction == null) reaction = currentNPC.AddComponent<NPCReactionController>();
+        reaction.Initialize(this, npcDemoData[idx], currentFloatingDialogue);
+
+        // 4) Waypoint movement
+        var movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (movement == null) movement = currentNPC.AddComponent<NPCWaypointMovement>();
         movement.waypoints = waypoints;
 
-        // Callback cuando llega a WP_1 (UI)
+        // 5) Suscribir callbacks
         movement.onReachedWaypoint1 = () =>
         {
-            NPCData data = npcDemoData[indexForThis];
-            if (uiController != null)
-            {
-                uiController.ShowUI(
-                    data.npcName,
-                    data.causeOfDeath,
-                    data.bio,
-                    data.goodActs,
-                    data.badActs
-                );
-            }
-            // Ahora el NPC espera la decisión
+            // Mostrar UI en UI_SpawnPoint (uiController se encarga de la posición fija)
+            uiController?.ShowUI(
+                npcDemoData[idx].npcName,
+                npcDemoData[idx].causeOfDeath,
+                npcDemoData[idx].bio,
+                npcDemoData[idx].goodActs,
+                npcDemoData[idx].badActs
+            );
+            // movement.isWaitingDecision comienza a true dentro de movement
         };
 
-        // Callback cuando llega al último waypoint (WP_5)
         movement.onReachedLastWaypoint = () =>
         {
-            // Limpiar referencia del NPC
+            // limpiar UI y referencias cuando llegue a WP_5
+            uiController?.HideUI();
+            if (currentFloatingDialogue != null)
+            {
+                Destroy(currentFloatingDialogue.gameObject);
+                currentFloatingDialogue = null;
+            }
             ClearCurrentNPC();
-
-            // Ocultar UI
-            if (uiController != null)
-                uiController.HideUI();
         };
 
-        movement.StartWalking(); // WP_0 → WP_1 automático
+        // 6) Arrancar movimiento (WP_0 → WP_1)
+        movement.StartWalking();
 
-    currentIndex++;
-}
-
+        currentIndex++;
+    }
 
     public void ClearCurrentNPC()
     {
         currentNPC = null;
     }
 
-    // Gestos
-    public void OnThumbsUp() { TriggerPositive(); }
-    public void OnThumbsDown() { TriggerNegative("ThumbsDown"); }
-    public void OnMiddleFinger() { TriggerNegative("MiddleFinger"); }
-    public void OnNegationGesture() { TriggerNegative("NegationIndex"); }
-
-    private void TriggerPositive()
+    // ---------- GESTOS (todos van a través del manager y se ignoran si no corresponde) ----------
+    public void OnThumbsUp()
     {
         if (currentNPC == null) return;
 
-        // Hacer reacción positiva
-        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+        var movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (movement == null) return;
+
+        // Solo procesar si está esperando decisión
+        if (!movement.isWaitingDecision) return;
+
+        // Reacción positiva y continuar hacia el cielo
+        var reaction = currentNPC.GetComponent<NPCReactionController>();
         reaction?.ReactPositive();
 
-        // Continuar camino si estaba esperando decisión
-        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
-        if (movement != null && movement.isWaitingDecision)
+        // ocultar UI fija (se destruye en la llegada a WP_5, pero cerramos la UI de CV al tomar la decisión)
+        uiController?.HideUI();
+
+        // destruir floating dialogue? reaction puede gestionarlo; igualmente lo limpiamos
+        if (currentFloatingDialogue != null)
         {
-            movement.ContinueWalking(); // ahora sigue hacia WP_2 -> WP_5
+            // permitir que la reacción escriba en él; si quieres que se muestre, no lo destruyas aquí
+            // pero si prefieres que desaparezca al tomar la decisión, destrúyelo:
+            // Destroy(currentFloatingDialogue.gameObject);
+            // currentFloatingDialogue = null;
         }
+
+        // Continuar movimiento
+        movement.ContinueWalkingToHeaven();
     }
 
-    private void TriggerNegative(string gestureName)
+    public void OnThumbsDown() { HandleNegativeGesture("ThumbsDown"); }
+    public void OnMiddleFinger() { HandleNegativeGesture("MiddleFinger"); }
+    public void OnNegationGesture() { HandleNegativeGesture("NegationIndex"); }
+
+    private void HandleNegativeGesture(string gestureName)
     {
         if (currentNPC == null) return;
 
-        // Reacción negativa
-        NPCReactionController reaction = currentNPC.GetComponent<NPCReactionController>();
+        var movement = currentNPC.GetComponent<NPCWaypointMovement>();
+        if (movement == null || !movement.isWaitingDecision) return;
+
+        // Reacción negativa (se encargará de destruir NPC si está implementado así)
+        var reaction = currentNPC.GetComponent<NPCReactionController>();
         reaction?.ReactNegative();
 
-        // Si estaba esperando decisión, destruir NPC
-        NPCWaypointMovement movement = currentNPC.GetComponent<NPCWaypointMovement>();
-        if (movement != null && movement.isWaitingDecision)
+        // Ocultar UI fija y destruir diálogo flotante
+        uiController?.HideUI();
+        if (currentFloatingDialogue != null)
         {
-            movement.isWaitingDecision = false;
-            // Se destruye el NPC desde ReactNegative
+            Destroy(currentFloatingDialogue.gameObject);
+            currentFloatingDialogue = null;
         }
-    }
 
+        // Limpiar referencia de manager (ReactNegative puede destruir el NPC también)
+        ClearCurrentNPC();
+    }
 }

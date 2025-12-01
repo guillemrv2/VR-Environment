@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 9099532829701594070}
   - component: {fileID: 42569456278869377}
   - component: {fileID: 2666415922418392296}
+  - component: {fileID: 4423561454950234146}
   m_Layer: 5
   m_Name: NPC_FloatingDialogue
   m_TagString: Untagged
@@ -38,7 +39,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: -0.010009766, y: 1.0679932}
-  m_SizeDelta: {x: 400, y: 100}
+  m_SizeDelta: {x: 600, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &5025639934819932579
 Canvas:
@@ -85,7 +86,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &42569456278869377
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -116,7 +117,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   targetToFollow: {fileID: 0}
+  canvasGroup: {fileID: 4423561454950234146}
   dialogueText: {fileID: 1577070963381207909}
+  fadeDuration: 0.3
+  typeSpeed: 0.04
+--- !u!225 &4423561454950234146
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128981501476965532}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &3834964426001716154
 GameObject:
   m_ObjectHideFlags: 0
@@ -149,10 +165,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 6849201767678964862}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 400, y: 100}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5538766796420114284
 CanvasRenderer:
@@ -209,8 +225,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 48
-  m_fontSizeBase: 48
+  m_fontSize: 72
+  m_fontSizeBase: 72
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
